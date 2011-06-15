@@ -7,7 +7,7 @@ use Data::Dumper;
 our $VERSION = '0.001000'; # 0.1.0
 $VERSION = eval $VERSION;
 
-my $hit_count = 0;
+my $timer = time();
 
 sub new {
     my ( $class ) = @_;
@@ -22,6 +22,10 @@ sub new {
 
 sub cache_limit {
     10;
+}
+
+sub work_lapse {
+    600; # Every 10 minutes.
 }
 
 sub connection {
@@ -54,7 +58,7 @@ sub set {
 sub get {
     my ( $self, $key ) = @_;
 
-    if ( ++$hit_count % 50 == 0 ) {
+    if ( $timer >= time() + $self->work_lapse ) {
         $self->purge_over_limit;
         $self->purge_expired; 
     }

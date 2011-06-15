@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+use Cache::SQLite;
+use Time::HiRes qw/ time /;
+
+my $Cache = Cache::SQLite->new();
+
+sub random { my @data = ('A' .. 'Z'); my $this; $this .= $data[rand(@data)] for 1 .. 10; return $this; };
+
+my %records = map { random, random } ( 0 .. 10000 );
+
+my $add_start = time;
+for my $key ( keys %records ) {
+    $Cache->set( $key, $records{$key}, 0);
+}
+my $add_stop = time;
+
+
+my $get_start = time;
+for my $key ( keys %records ) {
+    my $this = $Cache->get($key);
+    die unless $this eq $records{$key};
+}
+my $get_stop = time;
+
+
+print "Setting 10,000 records: " . ($add_stop-$add_start) . " seconds\n";
+print "Getting 10,000 records: " . ($get_stop-$add_start) . " seconds\n";
+
