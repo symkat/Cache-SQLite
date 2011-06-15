@@ -17,6 +17,14 @@ sub new {
         DBI->connect( "dbi:SQLite:dbname=:memory:", "", "" )
     );
     $self->_make_table();
+    $self->sth("set", "INSERT into cache ( key, value, expires ) VALUES( ?, ?, ? )" );
+    $self->sth("get", "SELECT * FROM cache WHERE key = ? LIMIT 1");
+    $self->sth("purge", "DELETE FROM cache WHERE key = ?" );
+    $self->sth("purge_expired", "DELETE FROM cache where expires <= ? AND expires != 0");
+    $self->sth("purge_limit", "SELECT * from cache ORDER BY hit DESC LIMIT 1000 OFFSET ?");
+    $self->sth("hit", "UPDATE cache SET hit = hit + 1 WHERE key = ?");
+    $self->sth("exists", "SELECT key FROM cache WHERE key = ? LIMIT 1");
+
     return $self;
 }
 
@@ -34,6 +42,13 @@ sub connection {
     return $self->{_connection};
 }
 
+sub sth {
+  my ($self, $key, $value) = @_;
+
+  $self->{_sth}{$key} = $self->connection->prepare($value) if ($value);
+  return $self->{_sth}{$key};
+}
+
 sub _make_table {
     my ( $self ) = @_;
     my $sql = qq/
@@ -49,8 +64,7 @@ sub _make_table {
 
 sub set {
     my ( $self, $key, $value, $expires ) = @_;
-    my $sth = $self->connection
-        ->prepare( "INSERT into cache ( key, value, expires ) VALUES( ?, ?, ? )" );
+    my $sth = $self->sth("set");
     $sth->execute( $key, $value, $expires || 0 );
     return $self;
 }
@@ -63,7 +77,7 @@ sub get {
         $self->purge_expired; 
     }
 
-    my $sth = $self->connection->prepare( "SELECT * FROM cache WHERE key = ? LIMIT 1" );
+    my $sth = $self->sth("get");
     $sth->execute( $key );
     my $row = $sth->fetchrow_hashref;
 
@@ -76,23 +90,23 @@ sub get {
 
 sub purge {
     my ( $self, $key ) = @_;
-    my $sth = $self->connection->prepare( "DELETE FROM cache WHERE key = ?" );
+    my $sth = $self->sth("purge");
     $sth->execute( $key );
     return $self;
 }
 
 sub purge_expired {
     my ( $self ) = @_;
-    my $sth = $self->connection->prepare("DELETE FROM cache where expires <= ? AND expires != 0");
+    my $sth = $self->sth("purge_expired");
     $sth->execute( time() );
     return $self;
 }
 
 sub purge_over_limit {
     my ( $self ) = @_;
-    my $sth = $self->connection->prepare( "SELECT * from cache ORDER BY hit DESC LIMIT 1000 OFFSET ?" );
+    my $sth = $self->sth("purge_limit");
     $sth->execute( $self->cache_limit );
-    my $delete = $self->connection->prepare( "DELETE FROM cache WHERE key = ?" );
+    my $delete = $self->$self->sth("delete");
     for my $row ( $sth->fetchrow_hashref ) {
         next unless $row;
         $delete->execute( $row->{key} );
@@ -102,14 +116,14 @@ sub purge_over_limit {
 
 sub hit {
     my ( $self, $key ) = @_;
-    my $sth = $self->connection->prepare( "UPDATE cache SET hit = hit + 1 WHERE key = ?" );
+    my $sth = $self->sth("hit");
     $sth->execute( $key );
     return $self;
 }
 
 sub exists {
     my ( $self, $key ) = @_;
-    my $sth = $self->connection->prepare( "SELECT key FROM cache WHERE key = ? LIMIT 1" );
+    my $sth = $self->sth("exists");
     $sth->execute( $key );
     my $row = $sth->fetchrow_hashref;
     return 0 unless defined $row and $row->{key} eq $key;
