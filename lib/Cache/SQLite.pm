@@ -8,6 +8,7 @@ our $VERSION = '0.001000'; # 0.1.0
 $VERSION = eval $VERSION;
 
 my $timer = time();
+my %hit;
 
 sub new {
     my ( $class ) = @_;
@@ -116,8 +117,10 @@ sub purge_over_limit {
 
 sub hit {
     my ( $self, $key ) = @_;
-    my $sth = $self->sth("hit");
-    $sth->execute( $key );
+    if ( $hit{$key}++ % 15 == 0 ) {
+        my $sth = $self->sth("hit");
+        $sth->execute( $key );
+    }
     return $self;
 }
 
