@@ -17,4 +17,7 @@ is $Cache->get( "Dr" ), "Who";
 ok $Cache->purge( "hello" );
 is $Cache->get( "hello" ), undef;
 
+is $Cache->exists( "Dr" ), 1;
+is $Cache->exists( "False" ), 0;
+
 done_testing;

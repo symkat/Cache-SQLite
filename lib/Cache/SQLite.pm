@@ -103,4 +103,13 @@ sub hit {
     return $self;
 }
 
+sub exists {
+    my ( $self, $key ) = @_;
+    my $sth = $self->connection->prepare( "SELECT key FROM cache WHERE key = ? LIMIT 1" );
+    $sth->execute( $key );
+    my $row = $sth->fetchrow_hashref;
+    return 0 unless defined $row and $row->{key} eq $key;
+    return 1;
+}
+
 1;
