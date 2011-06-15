@@ -19,7 +19,7 @@ sub new {
     );
     $self->_make_table();
     $self->sth("set", "INSERT into cache ( key, value, expires ) VALUES( ?, ?, ? )" );
-    $self->sth("get", "SELECT * FROM cache WHERE key = ? LIMIT 1");
+    $self->sth("get", "SELECT value FROM cache WHERE key = ? LIMIT 1");
     $self->sth("purge", "DELETE FROM cache WHERE key = ?" );
     $self->sth("purge_expired", "DELETE FROM cache where expires <= ? AND expires != 0");
     $self->sth("purge_limit", "SELECT * from cache ORDER BY hit DESC LIMIT 1000 OFFSET ?");
@@ -80,11 +80,12 @@ sub get {
 
     my $sth = $self->sth("get");
     $sth->execute( $key );
-    my $row = $sth->fetchrow_hashref;
+    my $row = $sth->fetch;
+
 
     if ( $row ) {
-        $self->hit( $row->{value} );
-        return $row->{value};
+        $self->hit( $key );
+        return $row->[0];
     }
     return undef;
 }
